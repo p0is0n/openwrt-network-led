@@ -1,0 +1,35 @@
+# macOS
+.DS_Store
+.AppleDouble
+._*
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+*.rej
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.pid
+*.strace
+
+# Runtime state
+network-led/checks/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Build and distribution
+dist/
+build/
+*.ipk
+*.apk

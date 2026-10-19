@@ -1,0 +1,142 @@
+#!/bin/sh
+
+# Network LED controller.
+#
+# Pipeline:
+#   Checks -> Runner -> Resolver -> RGB
+#
+# Commands:
+#   network-led run
+#   network-led status
+#   network-led check NAME
+#   network-led test
+
+APP="network-led"
+LIB="/usr/lib/network-led"
+
+. /lib/functions.sh
+. "$LIB/core/check.sh"
+. "$LIB/core/runner.sh"
+. "$LIB/core/resolver.sh"
+. "$LIB/outputs/rgb.sh"
+
+NL_RUNNING=1
+NL_LAST_STATE=""
+
+nl_log() {
+    logger -t "$APP" "$*"
+}
+
+nl_shutdown() {
+    NL_RUNNING=0
+    nl_rgb_off 2>/dev/null
+}
+
+nl_check_initialized() {
+    local section="$1"
+    local enabled state
+
+    config_get_bool enabled "$section" enabled 1
+    [ "$enabled" -eq 1 ] || return 0
+
+    state="$(nl_runner_get "$section")"
+
+    if [ "$state" = "uninitialized" ]; then
+        NL_INITIALIZED=0
+    fi
+}
+
+nl_is_initialized() {
+    NL_INITIALIZED=1
+
+    config_load network-led
+    config_foreach nl_check_initialized check
+
+    [ "$NL_INITIALIZED" -eq 1 ]
+}
+
+nl_resolve_state() {
+    if ! nl_is_initialized; then
+        printf '%s\n' "initializing white"
+        return
+    fi
+
+    nl_resolver_resolve | awk '{print $1, $2}'
+}
+
+nl_run() {
+    local state rule color
+
+    nl_runner_init
+
+    if ! nl_rgb_init; then
+        nl_log "RGB initialization failed"
+        return 1
+    fi
+
+    trap 'nl_shutdown; exit 0' INT TERM
+    trap 'nl_shutdown' EXIT
+
+    nl_log "started"
+
+    while [ "$NL_RUNNING" -eq 1 ]; do
+        nl_runner_tick
+
+        state="$(nl_resolve_state)"
+
+        read -r rule color <<EOF
+$state
+EOF
+
+        if [ "$state" != "$NL_LAST_STATE" ]; then
+            if nl_rgb_set "$color"; then
+                nl_log "state: ${NL_LAST_STATE:-none} -> $state"
+                NL_LAST_STATE="$state"
+            else
+                nl_log "failed to apply state: $state"
+            fi
+        fi
+
+        sleep 1
+    done
+}
+
+nl_status() {
+    nl_runner_snapshot
+    printf '\n'
+    nl_resolve_state
+}
+
+nl_test() {
+    local color
+
+    nl_rgb_init || return 1
+
+    for color in white orange blue purple green red; do
+        printf '%s\n' "$color"
+        nl_rgb_set "$color"
+        sleep 1
+    done
+
+    nl_rgb_off
+}
+
+case "${1:-run}" in
+    run)
+        nl_run
+        ;;
+    status)
+        nl_status
+        ;;
+    check)
+        [ -n "${2:-}" ] || exit 1
+        nl_check_run "$2"
+        ;;
+    test)
+        nl_test
+        ;;
+    *)
+        echo "Usage: $0 {run|status|check NAME|test}"
+        exit 1
+        ;;
+esac

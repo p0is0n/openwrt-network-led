@@ -1,0 +1,66 @@
+
+config settings 'main'
+    option enabled '1'
+    option tick_interval '1'
+    option log_level 'info'
+
+config check 'travelmate'
+    option enabled '1'
+    option interval '3'
+
+config check 'wifi'
+    option enabled '1'
+    option interval '3'
+
+config check 'dhcp'
+    option enabled '1'
+    option interval '3'
+
+config check 'internet'
+    option enabled '1'
+    option interval '15'
+    option fail_threshold '3'
+    option success_threshold '2'
+    list target '1.1.1.1'
+    list target '8.8.8.8'
+    list target '9.9.9.9'
+
+config led 'rgb'
+    option red 'LED0_Red'
+    option green 'LED0_Green'
+    option blue 'LED0_Blue'
+    option brightness '90'
+
+config rule 'error'
+    option priority '100'
+    list condition 'travelmate=unknown'
+    option color 'red'
+
+config rule 'searching'
+    option priority '90'
+    list condition 'travelmate=pending'
+    option color 'orange'
+
+config rule 'connecting'
+    option priority '80'
+    list condition 'wifi=ok'
+    list condition 'dhcp=pending'
+    option color 'blue'
+
+config rule 'offline'
+    option priority '70'
+    list condition 'wifi=ok'
+    list condition 'dhcp=ok'
+    list condition 'internet=fail'
+    option color 'purple'
+
+config rule 'online'
+    option priority '10'
+    list condition 'wifi=ok'
+    list condition 'dhcp=ok'
+    list condition 'internet=ok'
+    option color 'green'
+
+config rule 'fallback'
+    option priority '0'
+    option color 'red'
